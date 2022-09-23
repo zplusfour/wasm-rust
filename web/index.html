@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <script type='module'>
+    import wasmInit from "../pkg/wasm_rust.js"
+
+    const runWasm = async () => {
+      const wasm = await wasmInit("../pkg/wasm_rust_bg.wasm");
+
+      const wasmByteMemoryArray = new Uint8Array(wasm.memory.buffer);
+      const canvas = document.querySelector('canvas');
+      const canvasCtx = canvas.getContext('2d');
+      const canvasImageData = canvasCtx.createImageData(canvas.width, canvas.height);
+
+      canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const getDarkValue = () => {
+        return Math.floor(Math.random() * 100);
+      }
+
+      const getLightValue = () => {
+        return Math.floor(Math.random() * 127) + 127;
+      }
+
+      const drawCheckerBoard = () => {
+        const checkerBoardSize = 20;
+
+        // Generate a new checkboard in wasm
+        wasm.generate_checker_board(
+          getDarkValue(),
+          getDarkValue(),
+          getDarkValue(),
+          getLightValue(),
+          getLightValue(),
+          getLightValue()
+        );
+
+        // Pull out the RGBA values from Wasm memory
+        // Starting at the memory index of out output buffer (given by our pointer)
+        // 20 * 20 * 4 = checkboard max X * checkerboard max Y * number of pixel properties (R,G.B,A)
+        const outputPointer = wasm.get_output_buffer_pointer();
+        const imageDataArray = wasmByteMemoryArray.slice(
+          outputPointer,
+          outputPointer + checkerBoardSize * checkerBoardSize * 4
+        );
+
+        // Set the values to the canvas image data
+        canvasImageData.data.set(imageDataArray);
+
+        // Clear the canvas
+        canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Place the new generated checkerboard onto the canvas
+        canvasCtx.putImageData(canvasImageData, 0, 0);
+      };
+
+      drawCheckerBoard();
+      setInterval(() => {
+        drawCheckerBoard();
+      }, 1000);
+    }
+
+    runWasm()
+  </script>
+</head>
+
+<body>
+  <canvas width="20" height="20" style="image-rendering: pixelated; image-rendering: crisp-edges; width: 100%;">
+  </canvas>
+</body>
+
+</html>
